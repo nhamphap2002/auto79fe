@@ -165,9 +165,11 @@ class Auto79ControllerCron extends JControllerLegacy {
             $query = $db->getQuery(true);
             // Select the required fields from the table.
             $query->select('*');
-            $query->from('`#__auto79_cron`');
-            $query->where('id =' . $id);
-            $query->where('state = 1');
+            $query->from('`#__auto79_cron` AS cr');
+            $query->select("el.numpage, el.cateloopli, el.postlink");
+            $query->join("INNER", "#__auto79_element AS el ON el.id = cr.elemid");
+            $query->where('cr.id =' . $id);
+            $query->where('cr.state = 1');
             $db->setQuery($query);
             if ($item = $db->loadObject()) {
                 $to = $item->pageto;
@@ -277,19 +279,19 @@ class Auto79ControllerCron extends JControllerLegacy {
             $dom->load($html);
             $urlbase = $dom->find('base', 0)->href;
             $i = 0;
-            $page = $dom->find('.afterDiscussionListHandle .pageNavHeader', 0)->plaintext;
+            $page = $dom->find($item->numpage, 0)->plaintext;
             $arrPage = explode(' ', $page);
             $pageCurr = $arrPage[3];
             if ($pageCurr < $item->goto) {
                 $this->updatePageLoop($item->id, 1);
                 return false;
             }
-            foreach ($dom->find('.discussionListItems .discussionListItem') as $li) {
+            foreach ($dom->find($item->cateloopli) as $li) {
                 //$form = $li->outertext;
-                if (is_object($li->find('h3.title a', 1)))
-                    $href = $li->find('h3.title a', 1)->href;
+                if (is_object($li->find($item->postlink, 1)))
+                    $href = $li->find($item->postlink, 1)->href;
                 else
-                    $href = $li->find('h3.title a', 0)->href;
+                    $href = $li->find($item->postlink, 0)->href;
                 $i++;
                 $data['link'] = $urlbase . $href;
                 $data['category_id'] = $item->adcategories;
@@ -364,6 +366,7 @@ class Auto79ControllerCron extends JControllerLegacy {
             $query->from('`#__auto79_articles`');
             $query->where('cronid =' . $id);
             $query->where('hasget = 0');
+            $query->where('state = 1');
             $query->order('id ASC');
             $start = 0;
             $value = $this->getNumberNews($id);
@@ -387,7 +390,7 @@ class Auto79ControllerCron extends JControllerLegacy {
         $db = JFactory::getDbo();
         $query = $db->getQuery(true);
         // Select the required fields from the table.
-        $query->select('id');
+        $query->select('numbernews');
         $query->from('`#__auto79_cron`');
         $query->where('id =' . $id);
         $query->where('state = 1');
@@ -564,28 +567,51 @@ class Auto79ControllerCron extends JControllerLegacy {
 
     public function getNews($item) {
         $html = self::getRemoteForm($item->link);
-        if (strlen(trim($html)) > 0) {
+        $db = JFactory::getDbo();
+        $query = $db->getQuery(true);
+        $query->select("el.titlepost, el.postloopli, el.postimg, el.postcontent");
+        $query->from('`#__auto79_cron` AS cr');
+        $query->join("INNER", "#__auto79_element AS el ON el.id = cr.elemid");
+        $query->where('cr.id =' . $item->cronid);
+        $query->where('cr.state = 1');
+        $db->setQuery($query);
+        $elem = $db->loadObject();
+        if (strlen(trim($html)) > 0 && $elem) {
             $dom = new simple_html_dom();
             $dom->load($html);
             $i = 0;
-            if (!is_object($dom->find('.mainContent .titleBar h1', 0)))
+            if (!is_object($dom->find($elem->titlepost, 0)))
                 return '';
-            $title = $dom->find('.mainContent .titleBar h1', 0)->outertext;
+            $title = $dom->find($elem->titlepost, 0)->outertext;
             $title = preg_replace('/<span([^<]+)([^>]+)\/span>/i', '', $title);
             $html_title = str_get_html($title);
             $title = $html_title->plaintext;
             $arrHref = explode('/', $item->link);
             $arrAlias = explode('.', $arrHref[4]);
             $alias = $arrAlias[0];
-            foreach ($dom->find('.InlineModForm .messageList li') as $li) {
+
+            $params = JComponentHelper::getParams('com_adverts79');
+            $replaceContent = $params->get('replacecontent');
+            $replaceTitle = $params->get('replacetitle');
+            $arrReplaceText = explode(';', $replaceContent);
+            $arrReplaceTitle = explode(';', $replaceTitle);
+            if (count($arrReplaceTitle) > 0) {
+                for ($k = 0; $k < count($arrReplaceTitle); $k++) {
+                    $arrTitle = explode('|', $arrReplaceTitle[$k]);
+                    if (count($arrTitle) > 1) {
+                        $title = trim(str_replace($arrTitle[0], $arrTitle[1], $title));
+                    }
+                }
+            }
+            $alias = Auto79HelpersAuto79::vn_to_str($title);
+            foreach ($dom->find($elem->postloopli) as $li) {
                 $liId = $li->id;
-                $postId = explode('-', $liId);
+                $postId = explode('-', $liId);               
                 if ($i == 0) {
                     $html_link_sub = str_get_html($li);
                     $arrImg = array();
                     $ig = 1;
-                    $alias = Auto79HelpersAuto79::vn_to_str($title);
-                    foreach ($html_link_sub->find('.messageContent .SelectQuoteContainer img') as $box_sub) {
+                    foreach ($html_link_sub->find($elem->postimg) as $box_sub) {
                         //echo $urlImg = $img->{'data-url'};
                         $urlImg = '';
                         if ($box_sub->src != '' && $box_sub->{'data-url'} == '') {
@@ -605,7 +631,7 @@ class Auto79ControllerCron extends JControllerLegacy {
                             }
                         }
                     }
-                    $content = $li->find('.messageContent .SelectQuoteContainer', 0)->outertext;
+                    $content = $li->find($elem->postcontent, 0)->outertext;
                     //Replace <script>
                     $content = preg_replace('/<script([^<]+)([^>]+)\/script>/i', '', $content);
                     //Replace <style>
@@ -618,16 +644,14 @@ class Auto79ControllerCron extends JControllerLegacy {
                     $content = preg_replace("/<img[^>]+\>/i", " ", $content);
                     $content = preg_replace("/<br[^>]+\>/i", "<div></div>", $content);
 
-
-                    $params = JComponentHelper::getParams('com_adverts79');
-                    $replacecontent = $params->get('replacecontent');
-                    $arrReplaceText = explode(';', $replacecontent);
-                    if (count($arrReplaceText) > 0)
-                        for ($i = 0; $i < count($arrReplaceText); $i++) {
-                            $arrText = explode('|', $arrReplaceText[$i]);
-                            if (count($arrText) > 1)
+                    if (count($arrReplaceText) > 0) {
+                        for ($j = 0; $j < count($arrReplaceText); $j++) {
+                            $arrText = explode('|', $arrReplaceText[$j]);
+                            if (count($arrText) > 1) {
                                 $content = str_replace($arrText[0], $arrText[1], $content);
+                            }
                         }
+                    }                    
                     $data = array(
                         'title' => $title,
                         'alias' => $alias,
@@ -698,6 +722,9 @@ class Auto79ControllerCron extends JControllerLegacy {
         if (empty($newHeight) || empty($sourceFile)) {
             return false;
         }
+        list($width, $height) = @getimagesize($sourceFile);
+        if ($width < 1)
+            return false;
         if ($extension == 'jpg') {
             $src = imagecreatefromjpeg($sourceFile);
         } elseif ($extension == 'gif') {
@@ -705,7 +732,7 @@ class Auto79ControllerCron extends JControllerLegacy {
         } elseif ($extension == 'png') {
             $src = imagecreatefrompng($sourceFile);
         }
-        list($width, $height) = getimagesize($sourceFile);
+
         $newWidth = ($width / $height) * $newHeight;
         $tmp = imagecreatetruecolor($newWidth, $newHeight);
         imagecopyresampled($tmp, $src, 0, 0, 0, 0, $newWidth, $newHeight, $width, $height);
