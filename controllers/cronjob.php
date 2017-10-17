@@ -22,143 +22,9 @@ if (!function_exists('file_get_html') && !function_exists('str_get_html') && !fu
  */
 //*/30	*	*	*	*	/usr/bin/wget -O /dev/null "http://clone.khanhhoa79.vn/index.php?option=com_auto79&view=cron&task=cron.cronlinkpost&id=1"
 
-class Auto79ControllerCron extends JControllerLegacy {
+class Auto79ControllerCronJob extends JControllerLegacy {
 
-    /**
-     * Method to check out an item for editing and redirect to the edit form.
-     *
-     * @return void
-     *
-     * @since    1.6
-     */
-    public function edit() {
-        $app = JFactory::getApplication();
-
-        // Get the previous edit id (if any) and the current edit id.
-        $previousId = (int) $app->getUserState('com_auto79.edit.cron.id');
-        $editId = $app->input->getInt('id', 0);
-
-        // Set the user id for the user to edit in the session.
-        $app->setUserState('com_auto79.edit.cron.id', $editId);
-
-        // Get the model.
-        $model = $this->getModel('Cron', 'Auto79Model');
-
-        // Check out the item
-        if ($editId) {
-            $model->checkout($editId);
-        }
-
-        // Check in the previous user.
-        if ($previousId && $previousId !== $editId) {
-            $model->checkin($previousId);
-        }
-
-        // Redirect to the edit screen.
-        $this->setRedirect(JRoute::_('index.php?option=com_auto79&view=cronform&layout=edit', false));
-    }
-
-    /**
-     * Method to save a user's profile data.
-     *
-     * @return    void
-     *
-     * @throws Exception
-     * @since    1.6
-     */
-    public function publish() {
-        // Initialise variables.
-        $app = JFactory::getApplication();
-
-        // Checking if the user can remove object
-        $user = JFactory::getUser();
-
-        if ($user->authorise('core.edit', 'com_auto79') || $user->authorise('core.edit.state', 'com_auto79')) {
-            $model = $this->getModel('Cron', 'Auto79Model');
-
-            // Get the user data.
-            $id = $app->input->getInt('id');
-            $state = $app->input->getInt('state');
-
-            // Attempt to save the data.
-            $return = $model->publish($id, $state);
-
-            // Check for errors.
-            if ($return === false) {
-                $this->setMessage(JText::sprintf('Save failed: %s', $model->getError()), 'warning');
-            }
-
-            // Clear the profile id from the session.
-            $app->setUserState('com_auto79.edit.cron.id', null);
-
-            // Flush the data from the session.
-            $app->setUserState('com_auto79.edit.cron.data', null);
-
-            // Redirect to the list screen.
-            $this->setMessage(JText::_('COM_AUTO79_ITEM_SAVED_SUCCESSFULLY'));
-            $menu = JFactory::getApplication()->getMenu();
-            $item = $menu->getActive();
-
-            if (!$item) {
-                // If there isn't any menu item active, redirect to list view
-                $this->setRedirect(JRoute::_('index.php?option=com_auto79&view=crons', false));
-            } else {
-                $this->setRedirect(JRoute::_($item->link . $menuitemid, false));
-            }
-        } else {
-            throw new Exception(500);
-        }
-    }
-
-    /**
-     * Remove data
-     *
-     * @return void
-     *
-     * @throws Exception
-     */
-    public function remove() {
-        // Initialise variables.
-        $app = JFactory::getApplication();
-
-        // Checking if the user can remove object
-        $user = JFactory::getUser();
-
-        if ($user->authorise('core.delete', 'com_auto79')) {
-            $model = $this->getModel('Cron', 'Auto79Model');
-
-            // Get the user data.
-            $id = $app->input->getInt('id', 0);
-
-            // Attempt to save the data.
-            $return = $model->delete($id);
-
-            // Check for errors.
-            if ($return === false) {
-                $this->setMessage(JText::sprintf('Delete failed', $model->getError()), 'warning');
-            } else {
-                // Check in the profile.
-                if ($return) {
-                    $model->checkin($return);
-                }
-
-                $app->setUserState('com_auto79.edit.inventory.id', null);
-                $app->setUserState('com_auto79.edit.inventory.data', null);
-
-                $app->enqueueMessage(JText::_('COM_AUTO79_ITEM_DELETED_SUCCESSFULLY'), 'success');
-                $app->redirect(JRoute::_('index.php?option=com_auto79&view=crons', false));
-            }
-
-            // Redirect to the list screen.
-            $menu = JFactory::getApplication()->getMenu();
-            $item = $menu->getActive();
-            $this->setRedirect(JRoute::_($item->link, false));
-        } else {
-            throw new Exception(500);
-        }
-    }
-
-    public function cronlinkpost() {
+    public function cronlinkjob() {
         $id = JRequest::getInt('id');
         if ($id > 0) {
             $db = JFactory::getDbo();
@@ -180,9 +46,6 @@ class Auto79ControllerCron extends JControllerLegacy {
                 $prId = $item->province;
                 $loop = $step + $to;
                 $item->loop = $loop;
-//                if ($item->iscomplete) {
-//                    return true;
-//                } else {
                 if ($from > 0) {
                     if ($to < $from) {
                         for ($i = $to; $i <= $loop; $i++) {
@@ -312,7 +175,7 @@ class Auto79ControllerCron extends JControllerLegacy {
         //file_put_contents(dirname(__FILE__) . '/post.log', 'Post:' . print_r($data, true) . " \n", FILE_APPEND);
         if ($data['link'] != '') {
             $query->select('id');
-            $query->from('#__auto79_articles');
+            $query->from('#__auto79_job');
             $query->where('link =' . $db->quote($data['link']));
             $db->setQuery($query);
             if (!$db->loadResult()) {
@@ -345,7 +208,7 @@ class Auto79ControllerCron extends JControllerLegacy {
                     $db->quote($data['created_by'])
                 );
                 $query
-                        ->insert($db->quoteName('#__auto79_articles'))
+                        ->insert($db->quoteName('#__auto79_job'))
                         ->columns($db->quoteName($columns))
                         ->values(implode(',', $values));
                 //file_put_contents(dirname(__FILE__) . '/query.log', 'Query:' . $query . " \n", FILE_APPEND);
@@ -356,14 +219,14 @@ class Auto79ControllerCron extends JControllerLegacy {
         return true;
     }
 
-    public function cronpost() {
+    public function cronjob() {
         $id = JRequest::getInt('id');
         if ($id > 0) {
             $db = JFactory::getDbo();
             $query = $db->getQuery(true);
             // Select the required fields from the table.
             $query->select('*');
-            $query->from('`#__auto79_articles`');
+            $query->from('`#__auto79_job`');
             $query->where('cronid =' . $id);
             $query->where('hasget = 0');
             $query->where('state = 1');
@@ -425,10 +288,11 @@ class Auto79ControllerCron extends JControllerLegacy {
     public function insertAdverts($data) {
         $db = JFactory::getDbo();
         $query = $db->getQuery(true);
+        $han_nop = new JDate('now +1 month');
         //file_put_contents(dirname(__FILE__) . '/post.log', 'Post:' . print_r($data, true) . " \n", FILE_APPEND);
         if ($data['alias'] != '') {
             $query->select('id, linkpostid');
-            $query->from('#__adverts79_adverts');
+            $query->from('#__job79_jobs');
             $query->where('alias =' . $db->quote($data['alias']));
             $db->setQuery($query);
             if (!$item = $db->loadObject()) {
@@ -439,13 +303,10 @@ class Auto79ControllerCron extends JControllerLegacy {
                     'state',
                     'title',
                     'alias',
-                    'advert_description',
-                    'advert_images',
+                    'mo_ta',
                     'time_created',
-                    'category_id',
-                    'advert_sellertype',
-                    'advert_price_negotiable',
-                    'advert_vip',
+                    'loai_tin',
+                    'han_nop',
                     'add_province',
                     'cronid',
                     'created_by',
@@ -454,19 +315,16 @@ class Auto79ControllerCron extends JControllerLegacy {
                     $data['state'],
                     $db->quote($data['title']),
                     $db->quote($data['alias']),
-                    $db->quote($data['advert_description']),
-                    $db->quote($data['advert_images']),
+                    $db->quote($data['mo_ta']),
                     $db->quote($data['time_created']),
-                    $data['cateId'],
                     1,
-                    1,
-                    1,
+                    $db->quote($han_nop),
                     $data['province'],
                     $data['cronid'],
                     $data['created_by'],
                     $data['linkpostid']);
                 $query
-                        ->insert($db->quoteName('#__adverts79_adverts'))
+                        ->insert($db->quoteName('#__job79_jobs'))
                         ->columns($db->quoteName($columns))
                         ->values(implode(',', $values));
                 //echo $query;
@@ -494,7 +352,7 @@ class Auto79ControllerCron extends JControllerLegacy {
         $query = $db->getQuery(true);
 
         $fields = array(
-            $db->quoteName('postid') . ' = ' . $postid,
+            $db->quoteName('jobid') . ' = ' . $postid,
             $db->quoteName('hasget') . ' = 1'
         );
         /*
@@ -513,7 +371,7 @@ class Auto79ControllerCron extends JControllerLegacy {
         $conditions = array(
             $db->quoteName('id') . ' = ' . $cronid,
         );
-        $query->update($db->quoteName('#__auto79_articles'))->set($fields)->where($conditions);
+        $query->update($db->quoteName('#__auto79_job'))->set($fields)->where($conditions);
         //file_put_contents(dirname(__FILE__) . '/query.log', 'Query:' . $query . " \n", FILE_APPEND);
         $db->setQuery($query);
         $db->execute();
@@ -606,31 +464,11 @@ class Auto79ControllerCron extends JControllerLegacy {
             $alias = Auto79HelpersAuto79::vn_to_str($title);
             foreach ($dom->find($elem->postloopli) as $li) {
                 $liId = $li->id;
-                $postId = explode('-', $liId);
+                $postId = explode('-', $liId);               
                 if ($i == 0) {
                     $html_link_sub = str_get_html($li);
                     $arrImg = array();
                     $ig = 1;
-                    foreach ($html_link_sub->find($elem->postimg) as $box_sub) {
-                        //echo $urlImg = $img->{'data-url'};
-                        $urlImg = '';
-                        if ($box_sub->src != '' && $box_sub->{'data-url'} == '') {
-                            $urlImg = preg_replace('/_[0-9]{1,3}x[0-9]{1,3}/i', '', $box_sub->src);
-                        }
-                        if ($box_sub->{'data-url'} != '') {
-                            $urlImg = preg_replace('/_[0-9]{1,3}x[0-9]{1,3}/i', '', $box_sub->{'data-url'});
-                        }
-                        //$urlImg = str_replace('http://[img]', '', $urlImg);
-                        //echo strpos($urlImg, 'href=') . 'test' . '<br>';
-                        if (!strpos($urlImg, 'href=') && !strpos($urlImg, '[img]') && !strpos($urlImg, 'error_code') && $urlImg != '' && !strpos($urlImg, 'copy') && !strpos($urlImg, 'clear') && !strpos($urlImg, '?')) {
-                            //echo $urlImg . '<br>';
-                            $imageName = $alias . '-' . $ig;
-                            if ($this->downloadImg($urlImg, $imageName) != '') {
-                                $arrImg[] = $this->downloadImg($urlImg, $imageName);
-                                $ig++;
-                            }
-                        }
-                    }
                     $content = $li->find($elem->postcontent, 0)->outertext;
                     //Replace <script>
                     $content = preg_replace('/<script([^<]+)([^>]+)\/script>/i', '', $content);
@@ -642,7 +480,7 @@ class Auto79ControllerCron extends JControllerLegacy {
                     //$content = preg_replace("/<([a-z][a-z0-9]*)[^>]*?(\/?)>/i", '<$1$2>', $content);
                     //$content = preg_replace("/<br[^>]+\>/i", " ", $content);
                     $content = preg_replace("/<img[^>]+\>/i", " ", $content);
-                    $content = preg_replace('/(?:\s*<br[^>]*>\s*){2,}/s', "<br>", $content);
+                    $content = preg_replace('/(?:\s*<br[^>]*>\s*){3,}/s', "<br>", $content);
 
                     if (count($arrReplaceText) > 0) {
                         for ($j = 0; $j < count($arrReplaceText); $j++) {
@@ -651,14 +489,12 @@ class Auto79ControllerCron extends JControllerLegacy {
                                 $content = str_replace($arrText[0], $arrText[1], $content);
                             }
                         }
-                    }
+                    }                    
                     $data = array(
                         'title' => $title,
                         'alias' => $alias,
-                        'advert_description' => $content,
-                        'advert_images' => implode(',', $arrImg),
+                        'mo_ta' => $content,
                         'href' => $item->link,
-                        'cateId' => $item->category_id,
                         'province' => $item->province,
                         'created_by' => $item->created_by,
                         'modified_by' => $item->created_by,
@@ -677,79 +513,17 @@ class Auto79ControllerCron extends JControllerLegacy {
         }
     }
 
-    public function downloadImg($url, $imageName) {
-        if (@getimagesize($url)) {
-            list($width, $height, $type, $attr) = @getimagesize($url);
-            if ($width > 100) {
-                $split_image = pathinfo($url);
-                //file_put_contents(dirname(__FILE__) . '/split_image.log', 'split_image:' . print_r($split_image, true) . " \n", FILE_APPEND);
-                //file_put_contents(dirname(__FILE__) . '/url.log', 'split_image:' . $url . " \n", FILE_APPEND);
-                if (!empty($split_image['extension'])) {
-                    $ch = curl_init();
-                    curl_setopt($ch, CURLOPT_URL, $url);
-                    curl_setopt($ch, CURLOPT_USERAGENT, "Mozilla/5.0 (Windows; U; Windows NT 5.1; en-US) AppleWebKit/525.13 (KHTML, like Gecko) Chrome/0.A.B.C Safari/525.13");
-                    curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
-                    $response = curl_exec($ch);
-                    curl_close($ch);
-                    if (!strpos($response, 'DOCTYPE')) {
-                        $now = new \DateTime('now');
-                        $month = $now->format('m');
-                        $year = $now->format('Y');
-                        $uploaddir = JPATH_ROOT . '/images/adverts79/' . $month . '-' . $year . '/';
-                        if (!file_exists($uploaddir)) {
-                            JFolder::create($uploaddir);
-                        }
-                        $file_name = $uploaddir . $imageName . "." . $split_image['extension'];
-                        $file = fopen($file_name, 'w+') or die("X_x");
-                        fwrite($file, $response);
-                        fclose($file);
-                        $sourceFile = $uploaddir . $imageName . "." . $split_image['extension'];
-                        $this->resize(480, $sourceFile, $split_image['extension']);
-                        return $month . '-' . $year . '/' . $imageName . "." . $split_image['extension'];
-                    } else {
-                        return '';
-                    }
-                }
-            } else {
-                return '';
-            }
-        } else {
-            return '';
-        }
-    }
-
-    function resize($newHeight = 480, $sourceFile, $extension = 'jpg') {
-        if (empty($newHeight) || empty($sourceFile)) {
-            return false;
-        }
-        list($width, $height) = @getimagesize($sourceFile);
-        if ($width < 1)
-            return false;
-        if ($extension == 'jpg') {
-            $src = imagecreatefromjpeg($sourceFile);
-        } elseif ($extension == 'gif') {
-            $src = imagecreatefromgif($sourceFile);
-        } elseif ($extension == 'png') {
-            $src = imagecreatefrompng($sourceFile);
-        }
-
-        $newWidth = ($width / $height) * $newHeight;
-        $tmp = imagecreatetruecolor($newWidth, $newHeight);
-        imagecopyresampled($tmp, $src, 0, 0, 0, 0, $newWidth, $newHeight, $width, $height);
-        imagejpeg($tmp, $sourceFile, 70);
-    }
-
-    public function autoApproval() {
+    public function autojob() {
         $id = JRequest::getInt('id');
         $datenow = new JDate('now');
         $db = JFactory::getDBO();
         $query = $db->getQuery(true);
-        $query->select('id, postid, cronid, user_approval');
-        $query->from('#__auto79_articles');
+        $query->select('id, jobid, cronid, user_approval');
+        $query->from('#__auto79_job');
         $query->where('timeapproval < ' . $db->quote($datenow));
         //$query->where('timeapproval >' . $db->quote('NOW()'));
         $query->where('hasget > 0');
-        $query->where('postid > 0');
+        $query->where('jobid > 0');
         $query->where('approval = 0');
         $query->where('cronid = ' . $id);
         $start = 0;
@@ -767,17 +541,18 @@ class Auto79ControllerCron extends JControllerLegacy {
                     $db->quoteName('linkpostid') . ' = ' . $item->id,
                     $db->quoteName('cronid') . ' = ' . $item->cronid,
                 );
-                $query->update($db->quoteName('#__adverts79_adverts'))->set($fields)->where($conditions);
+                $query->update($db->quoteName('#__job79_jobs'))->set($fields)->where($conditions);
                 $db->setQuery($query);
                 if ($db->execute()) {
                     $query = $db->getQuery(true);
                     $fields = array(
                         $db->quoteName('approval') . ' = ' . 1,
+                        $db->quoteName('hasapproval') . ' = ' . 1,
                     );
                     $conditions = array(
                         $db->quoteName('id') . ' = ' . $item->id,
                     );
-                    $query->update($db->quoteName('#__auto79_articles'))->set($fields)->where($conditions);
+                    $query->update($db->quoteName('#__auto79_job'))->set($fields)->where($conditions);
                     $db->setQuery($query);
                     $db->execute();
                 }
@@ -791,4 +566,5 @@ class Auto79ControllerCron extends JControllerLegacy {
 /*
  * UPDATE `tv_auto79_articles` SET `timeapproval`= DATE_SUB(`time_created`, INTERVAL -30 MINUTE) WHERE `cronid`=1
  * UPDATE `tv_auto79_articles` SET `timeapproval`= DATE_SUB(`time_created`, INTERVAL -300 MINUTE) WHERE `cronid`=1
+ * 
  */
