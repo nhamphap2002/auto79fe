@@ -97,10 +97,14 @@ class Auto79ControllerCronJob extends JControllerLegacy {
         $date = JFactory::getDate();
         $query = $db->getQuery(true);
         if ($pageto == 1) {
+            $params = JComponentHelper::getParams('com_auto79');
+            $resetto = $params->get('resetto');
+            $resetloop = $params->get('resetloop');
+            $resetfrom = $params->get('resetfrom');
             $fields = array(
-                $db->quoteName('pageto') . ' = ' . $pageto,
-                $db->quoteName('pagestep') . ' = ' . 2,
-                $db->quoteName('pagefrom') . ' = ' . 5,
+                $db->quoteName('pageto') . ' = ' . $resetto,
+                $db->quoteName('pagestep') . ' = ' . $resetloop,
+                $db->quoteName('pagefrom') . ' = ' . $resetfrom,
             );
             $params = JComponentHelper::getParams('com_auto79');
             $emailadmin = $params->get('emailadmin');

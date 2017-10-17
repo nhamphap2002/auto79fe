@@ -234,12 +234,15 @@ class Auto79ControllerCron extends JControllerLegacy {
         $date = JFactory::getDate();
         $query = $db->getQuery(true);
         if ($pageto == 1) {
-            $fields = array(
-                $db->quoteName('pageto') . ' = ' . $pageto,
-                $db->quoteName('pagestep') . ' = ' . 2,
-                $db->quoteName('pagefrom') . ' = ' . 5,
-            );
             $params = JComponentHelper::getParams('com_auto79');
+            $resetto = $params->get('resetto');
+            $resetloop = $params->get('resetloop');
+            $resetfrom = $params->get('resetfrom');
+            $fields = array(
+                $db->quoteName('pageto') . ' = ' . $resetto,
+                $db->quoteName('pagestep') . ' = ' . $resetloop,
+                $db->quoteName('pagefrom') . ' = ' . $resetfrom,
+            );
             $emailadmin = $params->get('emailadmin');
             $vendorEmail = 'thang.testdev@gmail.com';
             $vendorName = 'Cron job';
